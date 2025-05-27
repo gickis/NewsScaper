@@ -49,7 +49,6 @@ news-scraper/
 │   ├── analyzer/        # AI analysis and summarization
 │   ├── database/        # Vector database operations
 │   └── cli.py          # Command-line interface
-├── tests/              # Test files
 ├── .env               # Environment variables
 ├── requirements.txt   # Project dependencies
 └── README.md         # Project documentation
@@ -79,13 +78,6 @@ python -m src.cli search "your search query" --limit 5
 - `search` command:
   - `--limit`, `-l`: Maximum number of results to return (default: 5)
   - `--export`, `-e`: Export results to JSON file
-
-## Testing
-
-Run the test suite:
-```bash
-pytest
-```
 
 ## License
 
