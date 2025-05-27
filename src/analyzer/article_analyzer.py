@@ -16,8 +16,7 @@ class ArticleAnalysis(BaseModel):
 class ArticleAnalyzer:
     def __init__(self):
         self.llm = ChatOpenAI(
-            model="gpt-3.5-turbo",
-            temperature=0.3,
+            model="gpt-4o",
             api_key=os.getenv("OPENAI_API_KEY")
         )
         self.parser = PydanticOutputParser(pydantic_object=ArticleAnalysis)

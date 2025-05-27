@@ -74,20 +74,26 @@ def scrape(url: str, print: bool):
 @click.argument('query')
 @click.option('--limit', '-l', help='Maximum number of results', default=5)
 @click.option('--export', '-e', help='Export results to JSON file')
-def search(query: str, limit: int, export: str):
-    """Search for articles using semantic similarity."""
+@click.option('--no-enhance', is_flag=True, help='Disable query enhancement')
+def search(query: str, limit: int, export: str, no_enhance: bool):
+    """Search for articles using semantic similarity with enhanced query understanding."""
     try:
         click.echo(f"Searching for: {query}")
         
-        # Search articles
+        # Search articles with enhanced query understanding
         results = vector_store.search_articles(
             query=query,
-            n_results=limit
+            n_results=limit,
+            enhance_query=not no_enhance
         )
         
         # Print results
         click.echo("\nSearch Results:")
         click.echo("-" * 50)
+        
+        # Show enhanced query if it was used (only once at the beginning)
+        if results and results[0].get('enhanced_query'):
+            click.echo(f"Enhanced query: {results[0]['enhanced_query']}\n")
         
         for i, article in enumerate(results, 1):
             click.echo(f"\n{i}. {article['title']}")

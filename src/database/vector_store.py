@@ -3,6 +3,8 @@ from chromadb.config import Settings
 from typing import List, Dict, Any
 import json
 import os
+from langchain_openai import ChatOpenAI
+from langchain.prompts import ChatPromptTemplate
 
 class VectorStore:
     def __init__(self, persist_directory: str = "data/chroma"):
@@ -27,6 +29,26 @@ class VectorStore:
             name="articles",
             metadata={"hnsw:space": "cosine"}
         )
+        
+        # Initialize LLM for query enhancement
+        self.llm = ChatOpenAI(
+            model="gpt-4o",
+            api_key=os.getenv("OPENAI_API_KEY")
+        )
+        
+        # Create prompt template for query enhancement
+        self.query_enhancement_prompt = ChatPromptTemplate.from_messages([
+            ("system", """You are an expert at understanding search queries and enhancing them for better semantic search results.
+            Given a user query, generate a list of semantically related terms and concepts that would help find relevant articles.
+            Focus on:
+            1. Synonyms and related terms
+            2. Broader and narrower concepts
+            3. Context-specific terminology
+            
+            Return the enhanced query as a single string that combines the original query with the additional terms.
+            Keep the enhanced query concise but comprehensive."""),
+            ("user", "{query}")
+        ])
 
     def add_article(self, 
                    article_id: str,
@@ -61,21 +83,52 @@ class VectorStore:
             }]
         )
 
+    def enhance_query(self, query: str) -> str:
+        """
+        Enhance the search query using LLM to include semantically related terms.
+        
+        Args:
+            query (str): Original search query
+            
+        Returns:
+            str: Enhanced query with additional semantic context
+        """
+        try:
+            # Format the prompt with the query
+            prompt = self.query_enhancement_prompt.format_messages(
+                query=query
+            )
+            
+            # Get enhanced query from LLM
+            response = self.llm.invoke(prompt)
+            enhanced_query = response.content.strip()
+            
+            return enhanced_query
+        except Exception as e:
+            # If enhancement fails, return original query
+            return query
+
     def search_articles(self, 
                        query: str,
-                       n_results: int = 5) -> List[Dict[str, Any]]:
+                       n_results: int = 5,
+                       enhance_query: bool = True) -> List[Dict[str, Any]]:
         """
-        Search for articles using semantic similarity.
+        Search for articles using semantic similarity with enhanced query understanding.
         
         Args:
             query (str): Search query
             n_results (int): Number of results to return
+            enhance_query (bool): Whether to enhance the query using LLM
             
         Returns:
             List[Dict[str, Any]]: List of matching articles with their metadata
         """
+        # Enhance the query if requested
+        search_query = self.enhance_query(query) if enhance_query else query
+        
+        # Perform the search
         results = self.collection.query(
-            query_texts=[query],
+            query_texts=[search_query],
             n_results=n_results
         )
         
@@ -87,7 +140,9 @@ class VectorStore:
                 'title': results['metadatas'][0][i]['title'],
                 'summary': results['metadatas'][0][i]['summary'],
                 'topics': json.loads(results['metadatas'][0][i]['topics']),
-                'similarity': results['distances'][0][i] if 'distances' in results else None
+                'similarity': results['distances'][0][i] if 'distances' in results else None,
+                'original_query': query,
+                'enhanced_query': search_query if enhance_query else None
             }
             articles.append(article)
             

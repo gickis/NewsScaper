@@ -1,13 +1,13 @@
 # News Scraper and Analyzer
 
-This project is a sophisticated news scraping and analysis system that leverages Generative AI to extract, summarize, and analyze news articles. It provides semantic search capabilities to find relevant articles based on user queries.
+This project is a sophisticated news scraping and analysis system that leverages Generative AI to extract, summarize, and analyze news articles. It provides advanced semantic search capabilities to find relevant articles based on user queries.
 
 ## Features
 
 - News article extraction from provided URLs
 - AI-powered article summarization
 - Topic identification using GenAI
-- Semantic search functionality
+- Advanced semantic search with query enhancement
 - Vector database storage for efficient retrieval
 - Command-line interface for easy usage
 
@@ -70,6 +70,12 @@ python -m src.cli scrape "https://example.com/article"
 python -m src.cli search "your search query" --limit 5
 ```
 
+The search feature includes:
+- Query enhancement using GenAI to understand context and synonyms
+- Semantic matching of articles based on content and topics
+- Relevance scoring for search results
+- Option to disable query enhancement if needed
+
 #### CLI Options
 
 - `scrape` command:
@@ -78,6 +84,7 @@ python -m src.cli search "your search query" --limit 5
 - `search` command:
   - `--limit`, `-l`: Maximum number of results to return (default: 5)
   - `--export`, `-e`: Export results to JSON file
+  - `--no-enhance`: Disable query enhancement (use original query only)
 
 ## License
 
