@@ -1,13 +1,15 @@
 import chromadb
 from chromadb.config import Settings
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import json
 import os
 from langchain_openai import ChatOpenAI
 from langchain.prompts import ChatPromptTemplate
 
 class VectorStore:
-    def __init__(self, persist_directory: str = "data/chroma"):
+    """Vector store for article storage and retrieval using ChromaDB."""
+    
+    def __init__(self, persist_directory: str = "data/chroma") -> None:
         """
         Initialize the vector store.
         
@@ -17,11 +19,10 @@ class VectorStore:
         self.persist_directory = persist_directory
         os.makedirs(persist_directory, exist_ok=True)
         
+        # Initialize ChromaDB client
         self.client = chromadb.PersistentClient(
             path=persist_directory,
-            settings=Settings(
-                anonymized_telemetry=False
-            )
+            settings=Settings(anonymized_telemetry=False)
         )
         
         # Create or get the collection
@@ -32,7 +33,8 @@ class VectorStore:
         
         # Initialize LLM for query enhancement
         self.llm = ChatOpenAI(
-            model="gpt-4o",
+            model="gpt-4",
+            temperature=0.3,
             api_key=os.getenv("OPENAI_API_KEY")
         )
         
@@ -44,9 +46,12 @@ class VectorStore:
             1. Synonyms and related terms
             2. Broader and narrower concepts
             3. Context-specific terminology
+            4. Domain-specific jargon and technical terms
+            5. Common variations and alternative phrasings
             
             Return the enhanced query as a single string that combines the original query with the additional terms.
-            Keep the enhanced query concise but comprehensive."""),
+            Keep the enhanced query concise but comprehensive.
+            Ensure the enhanced query maintains the original intent while expanding the search scope appropriately."""),
             ("user", "{query}")
         ])
 
@@ -68,20 +73,23 @@ class VectorStore:
             topics (List[str]): List of topics
             metadata (Dict[str, Any]): Additional metadata
         """
-        # Combine text for embedding
-        combined_text = f"{title}\n\n{summary}\n\n{' '.join(topics)}"
-        
-        # Add to collection
-        self.collection.add(
-            ids=[article_id],
-            documents=[combined_text],
-            metadatas=[{
-                **metadata,
-                "title": title,
-                "summary": summary,
-                "topics": json.dumps(topics)
-            }]
-        )
+        try:
+            # Combine text for embedding
+            combined_text = f"{title}\n\n{summary}\n\n{' '.join(topics)}"
+            
+            # Add to collection
+            self.collection.add(
+                ids=[article_id],
+                documents=[combined_text],
+                metadatas=[{
+                    **metadata,
+                    "title": title,
+                    "summary": summary,
+                    "topics": json.dumps(topics)
+                }]
+            )
+        except Exception as e:
+            raise Exception(f"Failed to add article to vector store: {str(e)}")
 
     def enhance_query(self, query: str) -> str:
         """
@@ -123,27 +131,30 @@ class VectorStore:
         Returns:
             List[Dict[str, Any]]: List of matching articles with their metadata
         """
-        # Enhance the query if requested
-        search_query = self.enhance_query(query) if enhance_query else query
-        
-        # Perform the search
-        results = self.collection.query(
-            query_texts=[search_query],
-            n_results=n_results
-        )
-        
-        # Format results
-        articles = []
-        for i in range(len(results['ids'][0])):
-            article = {
-                'id': results['ids'][0][i],
-                'title': results['metadatas'][0][i]['title'],
-                'summary': results['metadatas'][0][i]['summary'],
-                'topics': json.loads(results['metadatas'][0][i]['topics']),
-                'similarity': results['distances'][0][i] if 'distances' in results else None,
-                'original_query': query,
-                'enhanced_query': search_query if enhance_query else None
-            }
-            articles.append(article)
+        try:
+            # Enhance the query if requested
+            search_query = self.enhance_query(query) if enhance_query else query
             
-        return articles 
+            # Perform the search
+            results = self.collection.query(
+                query_texts=[search_query],
+                n_results=n_results
+            )
+            
+            # Format results
+            articles = []
+            for i in range(len(results['ids'][0])):
+                article = {
+                    'id': results['ids'][0][i],
+                    'title': results['metadatas'][0][i]['title'],
+                    'summary': results['metadatas'][0][i]['summary'],
+                    'topics': json.loads(results['metadatas'][0][i]['topics']),
+                    'similarity': results['distances'][0][i] if 'distances' in results else None,
+                    'original_query': query,
+                    'enhanced_query': search_query if enhance_query else None
+                }
+                articles.append(article)
+                
+            return articles
+        except Exception as e:
+            raise Exception(f"Failed to search articles: {str(e)}") 
